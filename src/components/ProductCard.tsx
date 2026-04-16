@@ -2,7 +2,9 @@ import { Plus, Minus, ShoppingCart } from 'lucide-react';
 import { Product } from '@/types';
 import { useAppStore } from '@/store/useAppStore';
 import { platformPrices } from '@/data/mockData';
+import { useProductImages } from '@/hooks/useProductImages';
 import { Button } from '@/components/ui/button';
+import { useState } from 'react';
 
 interface ProductCardProps {
   product: Product;
@@ -12,6 +14,10 @@ const ProductCard = ({ product }: ProductCardProps) => {
   const { cart, addToCart, updateQuantity, removeFromCart, language } = useAppStore();
   const isHi = language === 'hi';
   const cartItem = cart.find((i) => i.productId === product.id);
+  const { data: images } = useProductImages();
+  const [imgError, setImgError] = useState(false);
+
+  const imageUrl = images?.[product.id];
 
   const prices = platformPrices.filter((pp) => pp.productId === product.id && pp.available);
   const minPrice = prices.length > 0 ? Math.min(...prices.map((p) => p.basePrice - p.discount)) : 0;
@@ -20,7 +26,17 @@ const ProductCard = ({ product }: ProductCardProps) => {
   return (
     <div className="group rounded-lg border border-border bg-card p-4 shadow-card transition-all hover:shadow-card-hover">
       <div className="mb-3 flex items-start justify-between">
-        <span className="text-4xl">{product.image}</span>
+        {imageUrl && !imgError ? (
+          <img
+            src={imageUrl}
+            alt={isHi ? product.nameHi : product.name}
+            className="h-16 w-16 rounded-lg object-cover"
+            onError={() => setImgError(true)}
+            loading="lazy"
+          />
+        ) : (
+          <span className="text-4xl">{product.image}</span>
+        )}
         {minPrice < maxPrice && (
           <span className="rounded-full bg-savings/10 px-2 py-0.5 text-[10px] font-semibold text-savings">
             {isHi ? `₹${maxPrice - minPrice} बचत` : `Save ₹${maxPrice - minPrice}`}
