@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingCart, Search, MapPin, Globe } from 'lucide-react';
+import { ShoppingCart, Search, MapPin, Globe, Radio } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { cities } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
@@ -45,6 +45,13 @@ const Header = () => {
             <Globe className="h-3.5 w-3.5" />
             {isHi ? 'EN' : 'हिं'}
           </Button>
+
+          <Link to="/live-prices">
+            <Button variant="ghost" size="sm" className="relative gap-1 text-xs text-destructive">
+              <Radio className="h-3.5 w-3.5" />
+              Live
+            </Button>
+          </Link>
 
           <Link to="/search">
             <Button variant="ghost" size="icon" className="relative">
