@@ -9,16 +9,30 @@ import ComparisonCard from '@/components/ComparisonCard';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
+import { ExternalLink } from 'lucide-react';
 
 const CartPage = () => {
-  const { cart, language, removeFromCart, updateQuantity, clearCart } = useAppStore();
+  const {
+    cart,
+    liveCart,
+    language,
+    removeFromCart,
+    updateQuantity,
+    clearCart,
+    addLiveToCart,
+    updateLiveQuantity,
+    removeLiveFromCart,
+    clearLiveCart,
+  } = useAppStore();
   const isHi = language === 'hi';
 
   const summaries = useMemo(() => calculateAllPlatforms(cart), [cart]);
   const cheapest = useMemo(() => (cart.length > 0 ? findCheapest(summaries) : null), [summaries, cart]);
-  const maxTotal = Math.max(...summaries.map((s) => s.finalTotal));
+  const maxTotal = cart.length > 0 ? Math.max(...summaries.map((s) => s.finalTotal)) : 0;
 
-  if (cart.length === 0) {
+  const liveTotal = liveCart.reduce((s, i) => s + i.product.price * i.quantity, 0);
+
+  if (cart.length === 0 && liveCart.length === 0) {
     return (
       <div className="flex min-h-screen flex-col">
         <Header />

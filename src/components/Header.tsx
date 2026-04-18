@@ -5,9 +5,11 @@ import { cities } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 
 const Header = () => {
-  const { cart, language, selectedCity, setLanguage, setCity } = useAppStore();
+  const { cart, liveCart, language, selectedCity, setLanguage, setCity } = useAppStore();
   const location = useLocation();
-  const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
+  const cartCount =
+    cart.reduce((s, i) => s + i.quantity, 0) +
+    liveCart.reduce((s, i) => s + i.quantity, 0);
   const isHi = language === 'hi';
 
   return (
