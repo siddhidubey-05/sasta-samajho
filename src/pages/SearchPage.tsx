@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Search as SearchIcon, Loader2 } from 'lucide-react';
+import { Search as SearchIcon } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import LiveProductCard from '@/components/LiveProductCard';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { useLiveProducts } from '@/hooks/useLiveProducts';
 
 const CATEGORIES: { en: string; hi: string; query: string }[] = [
@@ -22,11 +23,17 @@ const SearchPage = () => {
   const { language } = useAppStore();
   const isHi = language === 'hi';
   const [query, setQuery] = useState('');
+  const [submittedQuery, setSubmittedQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>(CATEGORIES[0].en);
 
   const activeCategory = CATEGORIES.find((c) => c.en === selectedCategory);
-  const effectiveQuery = query.trim();
+  const effectiveQuery = submittedQuery.trim();
   const effectiveCategory = effectiveQuery.length >= 2 ? '' : activeCategory?.query || '';
+
+  const handleSearch = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setSubmittedQuery(query.trim());
+  };
 
   const { data, isLoading, isError, error } = useLiveProducts({
     query: effectiveQuery,
@@ -49,7 +56,7 @@ const SearchPage = () => {
             : 'Real-time Indian grocery products powered by SerpAPI'}
         </p>
 
-        <div className="mb-4 flex gap-2">
+        <form onSubmit={handleSearch} className="mb-4 flex gap-2">
           <div className="relative flex-1">
             <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -59,7 +66,11 @@ const SearchPage = () => {
               className="pl-9"
             />
           </div>
-        </div>
+          <Button type="submit" className="gap-1">
+            <SearchIcon className="h-4 w-4" />
+            {isHi ? 'खोजें' : 'Search'}
+          </Button>
+        </form>
 
         {/* Category chips */}
         <div className="mb-6 flex flex-wrap gap-2">
@@ -69,6 +80,7 @@ const SearchPage = () => {
               onClick={() => {
                 setSelectedCategory(cat.en);
                 setQuery('');
+                setSubmittedQuery('');
               }}
               className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 selectedCategory === cat.en && !effectiveQuery
