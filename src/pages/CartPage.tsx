@@ -64,35 +64,58 @@ const CartPage = () => {
           <h1 className="text-2xl font-bold">
             {isHi ? '🛒 कार्ट कम्पेयर' : '🛒 Cart Compare'}
           </h1>
-          <Button variant="ghost" size="sm" onClick={clearCart} className="text-destructive">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              clearCart();
+              clearLiveCart();
+            }}
+            className="text-destructive"
+          >
             <Trash2 className="mr-1 h-3.5 w-3.5" />
             {isHi ? 'खाली करें' : 'Clear'}
           </Button>
         </div>
 
-        {/* Cart items */}
-        <div className="mb-6 rounded-xl border border-border bg-card p-4 shadow-card">
-          <h2 className="mb-3 text-sm font-bold text-muted-foreground">
-            {isHi ? `${cart.length} सामान कार्ट में` : `${cart.length} items in cart`}
-          </h2>
-          <div className="space-y-3">
-            {cart.map((item) => {
-              const product = products.find((p) => p.id === item.productId)!;
-              return (
+        {/* Live cart items (from SerpAPI search) */}
+        {liveCart.length > 0 && (
+          <div className="mb-6 rounded-xl border border-primary/30 bg-card p-4 shadow-card">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-bold text-muted-foreground">
+                {isHi
+                  ? `${liveCart.length} लाइव सामान`
+                  : `${liveCart.length} live items`}
+              </h2>
+              <span className="text-sm font-bold text-primary">
+                ₹{liveTotal.toFixed(0)}
+              </span>
+            </div>
+            <div className="space-y-3">
+              {liveCart.map((item) => (
                 <div key={item.productId} className="flex items-center gap-3">
-                  <span className="text-2xl">{product.image}</span>
+                  {item.product.imageUrl ? (
+                    <img
+                      src={item.product.imageUrl}
+                      alt={item.product.name}
+                      className="h-10 w-10 rounded object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span className="text-2xl">🛒</span>
+                  )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {isHi ? product.nameHi : product.name}
+                    <p className="text-sm font-medium truncate">{item.product.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.product.priceFormatted || `₹${item.product.price}`} · {item.product.source}
                     </p>
-                    <p className="text-xs text-muted-foreground">{product.unit}</p>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Button
                       variant="outline"
                       size="icon"
                       className="h-7 w-7"
-                      onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                      onClick={() => updateLiveQuantity(item.productId, item.quantity - 1)}
                     >
                       <Minus className="h-3 w-3" />
                     </Button>
@@ -101,26 +124,88 @@ const CartPage = () => {
                       variant="outline"
                       size="icon"
                       className="h-7 w-7"
-                      onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                      onClick={() => addLiveToCart(item.product)}
                     >
                       <Plus className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      asChild
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                    >
+                      <a href={item.product.link} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 text-destructive"
-                      onClick={() => removeFromCart(item.productId)}
+                      onClick={() => removeLiveFromCart(item.productId)}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Best savings banner */}
+        {/* Mock cart items */}
+        {cart.length > 0 && (
+          <div className="mb-6 rounded-xl border border-border bg-card p-4 shadow-card">
+            <h2 className="mb-3 text-sm font-bold text-muted-foreground">
+              {isHi ? `${cart.length} सामान कार्ट में` : `${cart.length} items in cart`}
+            </h2>
+            <div className="space-y-3">
+              {cart.map((item) => {
+                const product = products.find((p) => p.id === item.productId)!;
+                return (
+                  <div key={item.productId} className="flex items-center gap-3">
+                    <span className="text-2xl">{product.image}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {isHi ? product.nameHi : product.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{product.unit}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="w-6 text-center text-sm font-semibold">{item.quantity}</span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => removeFromCart(item.productId)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Best savings banner — only for mock items */}
         {cheapest && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -150,27 +235,31 @@ const CartPage = () => {
           </motion.div>
         )}
 
-        {/* Platform comparison */}
-        <h2 className="mb-4 text-lg font-bold">
-          {isHi ? '📊 प्लेटफ़ॉर्म तुलना' : '📊 Platform Comparison'}
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {summaries
-            .sort((a, b) => a.finalTotal - b.finalTotal)
-            .map((summary) => (
-              <motion.div
-                key={summary.platformId}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <ComparisonCard
-                  summary={summary}
-                  isCheapest={cheapest?.platformId === summary.platformId}
-                  savingsVsMax={maxTotal - summary.finalTotal}
-                />
-              </motion.div>
-            ))}
-        </div>
+        {/* Platform comparison — only for mock items */}
+        {cart.length > 0 && (
+          <>
+            <h2 className="mb-4 text-lg font-bold">
+              {isHi ? '📊 प्लेटफ़ॉर्म तुलना' : '📊 Platform Comparison'}
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {summaries
+                .sort((a, b) => a.finalTotal - b.finalTotal)
+                .map((summary) => (
+                  <motion.div
+                    key={summary.platformId}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <ComparisonCard
+                      summary={summary}
+                      isCheapest={cheapest?.platformId === summary.platformId}
+                      savingsVsMax={maxTotal - summary.finalTotal}
+                    />
+                  </motion.div>
+                ))}
+            </div>
+          </>
+        )}
 
         {/* Disclaimer */}
         <p className="mt-6 text-center text-[10px] text-muted-foreground">
