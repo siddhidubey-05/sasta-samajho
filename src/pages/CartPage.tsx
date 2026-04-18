@@ -30,7 +30,19 @@ const CartPage = () => {
   const cheapest = useMemo(() => (cart.length > 0 ? findCheapest(summaries) : null), [summaries, cart]);
   const maxTotal = cart.length > 0 ? Math.max(...summaries.map((s) => s.finalTotal)) : 0;
 
-  const liveTotal = liveCart.reduce((s, i) => s + i.product.price * i.quantity, 0);
+  const liveSubtotal = liveCart.reduce((s, i) => s + i.product.price * i.quantity, 0);
+  const liveGstPercent = 5;
+  const liveGst = (liveSubtotal * liveGstPercent) / 100;
+  const liveDiscountPercent = 5;
+  const liveDiscount = (liveSubtotal * liveDiscountPercent) / 100;
+  const liveDeliveryFee = liveSubtotal > 0 && liveSubtotal < 199 ? 25 : 0;
+  const livePlatformFee = liveSubtotal > 0 ? 5 : 0;
+  const liveHandlingFee = liveSubtotal > 0 ? 4 : 0;
+  const liveFinalTotal = Math.max(
+    0,
+    liveSubtotal + liveGst + liveDeliveryFee + livePlatformFee + liveHandlingFee - liveDiscount
+  );
+  const liveTotal = liveSubtotal;
 
   if (cart.length === 0 && liveCart.length === 0) {
     return (
