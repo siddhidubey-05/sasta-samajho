@@ -165,7 +165,78 @@ const CartPage = () => {
           </div>
         )}
 
-        {/* Mock cart items */}
+        {/* Live cart price breakdown */}
+        {liveCart.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 rounded-xl border border-border bg-card p-4 shadow-card"
+          >
+            <h2 className="mb-3 text-sm font-bold text-muted-foreground">
+              {isHi ? '💰 बिल विवरण' : '💰 Bill Details'}
+            </h2>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {isHi ? 'कुल कीमत (Subtotal)' : 'Items Subtotal'}
+                </span>
+                <span className="font-medium">₹{liveSubtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {isHi ? `GST (${liveGstPercent}%)` : `GST (${liveGstPercent}%)`}
+                </span>
+                <span className="font-medium">+ ₹{liveGst.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {isHi ? 'डिलीवरी फीस' : 'Delivery Fee'}
+                </span>
+                <span className="font-medium">
+                  {liveDeliveryFee === 0 ? (
+                    <span className="text-savings">{isHi ? 'मुफ्त' : 'FREE'}</span>
+                  ) : (
+                    `+ ₹${liveDeliveryFee.toFixed(2)}`
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {isHi ? 'प्लेटफ़ॉर्म फीस' : 'Platform Fee'}
+                </span>
+                <span className="font-medium">+ ₹{livePlatformFee.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {isHi ? 'हैंडलिंग फीस' : 'Handling Fee'}
+                </span>
+                <span className="font-medium">+ ₹{liveHandlingFee.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">
+                  {isHi ? `डिस्काउंट (${liveDiscountPercent}%)` : `Discount (${liveDiscountPercent}%)`}
+                </span>
+                <span className="font-medium text-savings">- ₹{liveDiscount.toFixed(2)}</span>
+              </div>
+              <div className="my-2 border-t border-border" />
+              <div className="flex items-center justify-between text-base">
+                <span className="font-bold">
+                  {isHi ? 'कुल भुगतान' : 'Grand Total'}
+                </span>
+                <span className="text-lg font-extrabold text-primary">
+                  ₹{liveFinalTotal.toFixed(2)}
+                </span>
+              </div>
+              {liveDiscount > 0 && (
+                <p className="text-center text-xs text-savings">
+                  {isHi
+                    ? `🎉 आपने ₹${liveDiscount.toFixed(2)} बचाए!`
+                    : `🎉 You saved ₹${liveDiscount.toFixed(2)}!`}
+                </p>
+              )}
+            </div>
+          </motion.div>
+        )}
         {cart.length > 0 && (
           <div className="mb-6 rounded-xl border border-border bg-card p-4 shadow-card">
             <h2 className="mb-3 text-sm font-bold text-muted-foreground">
