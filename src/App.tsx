@@ -8,6 +8,8 @@ import SearchPage from "./pages/SearchPage";
 import LivePricesPage from "./pages/LivePricesPage";
 import CartPage from "./pages/CartPage";
 import NotFound from "./pages/NotFound";
+import BudgetPlanner from "./pages/BudgetPlanner";
+
 
 const queryClient = new QueryClient();
 
@@ -23,6 +25,9 @@ const App = () => (
           <Route path="/live-prices" element={<LivePricesPage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="*" element={<NotFound />} />
+            <Route path="/budget-planner" element={<BudgetPlanner />} />
+  <Route path="/kirana" element={<div>🏪 Kirana Comparison Coming Soon!</div>} />
+  <Route path="/price-alerts" element={<div>🔔 Price Alerts Coming!</div>} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

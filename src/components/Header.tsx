@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, NavLink } from 'react-router-dom';
 import { ShoppingCart, Search, MapPin, Globe, Radio } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { cities } from '@/data/mockData';
@@ -38,43 +39,53 @@ const Header = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setLanguage(isHi ? 'en' : 'hi')}
-            className="gap-1 text-xs"
-          >
-            <Globe className="h-3.5 w-3.5" />
-            {isHi ? 'EN' : 'हिं'}
-          </Button>
+  {/* NEW: Budget Planner Button */}
+  <Link to="/budget-planner">
+    <Button variant="ghost" size="sm" className="gap-1 text-xs hover:text-green-600">
+      💰 Budget
+    </Button>
+  </Link>
+  
+  {/* NEW: Price Alerts Button */}
+  <Link to="/price-alerts">
+    <Button variant="ghost" size="sm" className="gap-1 text-xs hover:text-orange-600">
+      🔔 Alerts
+    </Button>
+  </Link>
 
-          <Link to="/live-prices">
-            <Button variant="ghost" size="sm" className="relative gap-1 text-xs text-destructive">
-              <Radio className="h-3.5 w-3.5" />
-              Live
-            </Button>
-          </Link>
+  {/* EXISTING Language Button */}
+  <Button
+    variant="ghost"
+    size="sm"
+    onClick={() => setLanguage(isHi ? 'en' : 'hi')}
+    className="gap-1 text-xs"
+  >
+    <Globe className="h-3.5 w-3.5" />
+    {isHi ? 'EN' : 'हिं'}
+  </Button>
 
-          <Link to="/search">
-            <Button variant="ghost" size="icon" className="relative">
-              <Search className="h-5 w-5" />
-            </Button>
-          </Link>
+  {/* REST OF EXISTING BUTTONS */}
+  <Link to="/live-prices">
+    <Button variant="ghost" size="sm" className="relative gap-1 text-xs text-destructive">
+      <Radio className="h-3.5 w-3.5" />
+      Live
+    </Button>
+  </Link>
 
-          <Link to="/cart">
-            <Button variant="ghost" size="icon" className="relative">
-              <ShoppingCart className="h-5 w-5" />
-              {cartCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                  {cartCount}
-                </span>
-              )}
-            </Button>
-          </Link>
-        </div>
-      </div>
-    </header>
-  );
-};
+  <Link to="/search">
+    <Button variant="ghost" size="icon" className="relative">
+      <Search className="h-5 w-5" />
+    </Button>
+  </Link>
 
-export default Header;
+  <Link to="/cart">
+    <Button variant="ghost" size="icon" className="relative">
+      <ShoppingCart className="h-5 w-5" />
+      {cartCount > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+          {cartCount}
+        </span>
+      )}
+    </Button>
+  </Link>
+</div>
