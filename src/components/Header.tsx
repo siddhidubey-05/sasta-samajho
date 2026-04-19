@@ -78,14 +78,22 @@ const Header = () => {
     </Button>
   </Link>
 
-  <Link to="/cart">
-    <Button variant="ghost" size="icon" className="relative">
-      <ShoppingCart className="h-5 w-5" />
-      {cartCount > 0 && (
-        <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-          {cartCount}
-        </span>
-      )}
-    </Button>
-  </Link>
-</div>
+
+        <Link to="/cart">
+          <Button variant="ghost" size="icon" className="relative">
+            <ShoppingCart className="h-5 w-5" />
+            {cartCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                {cartCount}
+              </span>
+            )}
+          </Button>
+        </Link>
+      </div>
+    </div>
+  </header>
+);
+};
+
+export default Header;
+

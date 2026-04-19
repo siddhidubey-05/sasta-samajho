@@ -73,9 +73,9 @@ Deno.serve(async (req) => {
     regularUrl.searchParams.set('num', '10');
 
     const regularResponse = await fetch(regularUrl.toString());
-    let organicResults: any[] = [];
+    let organicResults: { snippet?: string; title?: string; link?: string; displayed_link?: string }[] = [];
     if (regularResponse.ok) {
-      const regularData = await regularResponse.json();
+      const regularData = await regularResponse.json() as { organic_results?: unknown[] };
       organicResults = regularData.organic_results || [];
     } else {
       await regularResponse.text(); // consume body
@@ -118,8 +118,8 @@ Deno.serve(async (req) => {
 
     // Extract price snippets from organic results
     const priceSnippets = organicResults
-      .filter((r: any) => r.snippet)
-      .map((r: any) => ({
+      .filter((r: { snippet?: string }) => r.snippet)
+      .map((r: { title?: string; snippet?: string; link?: string; displayed_link?: string }) => ({
         title: r.title,
         snippet: r.snippet,
         link: r.link,

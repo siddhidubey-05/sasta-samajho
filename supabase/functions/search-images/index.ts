@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
           const images = data.images_results || [];
           
           // Pick the first reasonable image (skip tiny ones)
-          const img = images.find((r: any) => 
+          const img = images.find((r: { thumbnail?: string; original?: string; width?: number; height?: number }) => 
             r.thumbnail && r.original && 
             (r.width || 100) >= 80 && (r.height || 100) >= 80
           );
