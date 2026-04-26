@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, ArrowRight, TrendingDown, ShieldCheck, Zap, IndianRupee } from 'lucide-react';
+import { Search, ArrowRight, TrendingDown, ShieldCheck, Zap, IndianRupee, Sparkles } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { products } from '@/data/mockData';
+import { useSuggestions } from '@/hooks/useSuggestions';
 import ProductCard from '@/components/ProductCard';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -12,6 +13,7 @@ const Index = () => {
   const { language } = useAppStore();
   const isHi = language === 'hi';
   const popularProducts = products.slice(0, 8);
+  const suggestions = useSuggestions();
   const categories = [...new Set(products.map((p) => isHi ? p.categoryHi : p.category))];
 
   return (
@@ -110,6 +112,40 @@ const Index = () => {
           </div>
         </div>
       </section>
+
+      {/* Smart Suggestions - Personalized Recommendations */}
+      {suggestions.length > 0 && (
+        <section className="py-12">
+          <div className="container">
+            <div className="mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-6 w-6 text-primary" />
+                <h2 className="text-2xl font-bold">{isHi ? '✨ आपके लिए सुझाव' : '✨ Personalized for You'}</h2>
+              </div>
+              <Link to="/search" className="text-sm font-semibold text-primary hover:underline">
+                {isHi ? 'और देखें →' : 'Explore More →'}
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {suggestions.map((suggestion, i) => (
+                <motion.div
+                  key={suggestion.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                >
+                  <div className="relative">
+                    <ProductCard product={suggestion} />
+                    <div className="absolute -top-2 -right-2 inline-block bg-gradient-to-r from-yellow-400 to-orange-400 text-xs font-bold text-white px-2 py-1 rounded-full shadow-lg">
+                      {suggestion.reason.label}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Best deal banner */}
       <section className="py-10">

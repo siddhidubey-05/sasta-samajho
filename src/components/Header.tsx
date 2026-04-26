@@ -53,6 +53,13 @@ const Header = () => {
     </Button>
   </Link>
 
+  {/* NEW: Kirana Comparison Button */}
+  <Link to="/kirana">
+    <Button variant="ghost" size="sm" className="gap-1 text-xs hover:text-emerald-600">
+      🏪 Kirana
+    </Button>
+  </Link>
+
   {/* EXISTING Language Button */}
   <Button
     variant="ghost"
