@@ -6,6 +6,8 @@ import { useAppStore } from '@/store/useAppStore';
 import { products } from '@/data/mockData';
 import { calculateAllPlatforms, findCheapest } from '@/lib/calculations';
 import ComparisonCard from '@/components/ComparisonCard';
+import SmartSuggestionsCard from '@/components/SmartSuggestionsCard';
+import CartPlatformComparison from '@/components/CartPlatformComparison';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -89,6 +91,20 @@ const CartPage = () => {
             {isHi ? 'खाली करें' : 'Clear'}
           </Button>
         </div>
+
+        {/* Smart Suggestions Section */}
+        {(cart.length > 0 || liveCart.length > 0) && (
+          <div className="mb-8">
+            <SmartSuggestionsCard cart={cart} isHi={isHi} />
+          </div>
+        )}
+
+        {/* Platform & Kirana Comparison Section */}
+        {cart.length > 0 && (
+          <div className="mb-8">
+            <CartPlatformComparison cart={cart} isHi={isHi} />
+          </div>
+        )}
 
         {/* Live cart items (from SerpAPI search) */}
         {liveCart.length > 0 && (

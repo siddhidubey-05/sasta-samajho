@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Plus, Bell, TrendingDown, Zap, AlertCircle } from 'lucide-react';
+import { Trash2, Plus, Bell, TrendingDown, Zap, AlertCircle, ShoppingCart } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { products } from '@/data/mockData';
 import { productPrices, getCheapestPrice, getPriceDropPrediction } from '@/data/productPrices';
+import { comparePlatformPrices } from '@/lib/smartSuggestions';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -325,10 +326,48 @@ const PriceAlertsPage = () => {
                         </div>
                       )}
 
+                      {/* Platform Price Comparison */}
+                      {(() => {
+                        const platformComps = comparePlatformPrices(alert.productId, 1);
+                        const cheapestPlatform = platformComps.find((p) => p.isCheapest);
+                        return (
+                          <div className="mt-4 space-y-2">
+                            <div className="text-xs font-semibold text-muted-foreground">
+                              {isHi ? '📍 प्लेटफॉर्म तुलना:' : '📍 Platform Prices:'}
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                              {platformComps.map((comp) => (
+                                <div
+                                  key={comp.platform}
+                                  className={`p-2 rounded-lg text-center text-xs transition-all ${
+                                    comp.isCheapest
+                                      ? 'bg-green-100 border-2 border-green-500 dark:bg-green-900 dark:border-green-400'
+                                      : 'bg-gray-100 dark:bg-gray-800'
+                                  }`}
+                                >
+                                  <div className="font-semibold">{comp.platform}</div>
+                                  <div className="text-sm font-bold mt-1">₹{comp.price.toFixed(0)}</div>
+                                  {comp.delivery > 0 && (
+                                    <div className="text-xs opacity-70">
+                                      +₹{comp.delivery} {isHi ? 'डिलीवरी' : 'delivery'}
+                                    </div>
+                                  )}
+                                  {comp.isCheapest && (
+                                    <div className="text-xs font-bold text-green-700 dark:text-green-300 mt-1">
+                                      ✓ {isHi ? 'सबसे सस्ता' : 'Best'}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-2">
+                              <strong>{isHi ? '💡 सुझाव:' : '💡 Tip:'}</strong> {isHi ? 'इस प्रोडक्ट को' : 'Buy from'} <strong>{cheapestPlatform?.platform}</strong> {isHi ? 'से खरीदें' : ''} - {isHi ? 'सबसे सस्ता विकल्प' : 'Cheapest option'}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       <div className="mt-3 flex gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {alert.platform}
-                        </Badge>
                         <Badge variant="outline" className="text-xs">
                           {isHi ? 'सेट किया गया:' : 'Set:'} {new Date(alert.createdAt).toLocaleDateString(isHi ? 'hi-IN' : 'en-US')}
                         </Badge>

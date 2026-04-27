@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, BarChart3, MapPin } from 'lucide-react';
+import { Plus, Trash2, BarChart3, MapPin, TrendingDown, TrendingUp, DollarSign, Store, Info } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { products } from '@/data/mockData';
 import { productPrices, getCheapestPrice } from '@/data/productPrices';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Select,
   SelectContent,
@@ -178,6 +179,14 @@ const KiranaComparisonPage = () => {
               : 'Add local kirana store prices and compare with online platforms'}
           </p>
         </div>
+
+        {/* Info Alert about Real Data */}
+        <Alert className="mb-6 border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
+          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertDescription className="text-blue-800 dark:text-blue-200">
+            <strong>{isHi ? '💡 महत्वपूर्ण:' : '💡 Important:'}</strong> {isHi ? 'आप जो कीमतें दर्ज करेंगे वह आपके स्थानीय किराना स्टोर की वास्तविक कीमतें होंगी। इन्हें अपनी खरीदारी से पहले अपडेट रखें ताकि सटीक तुलना मिले। ऑनलाइन प्लेटफॉर्म की कीमतें स्वचालित रूप से अपडेट होती हैं।' : 'Enter real prices from your local kirana stores. Keep prices updated for accurate comparisons. Online platform prices are automatically updated.'}
+          </AlertDescription>
+        </Alert>
 
         {/* Stores List */}
         <div className="mb-8">
@@ -351,70 +360,115 @@ const KiranaComparisonPage = () => {
                 {isHi ? 'विस्तृत तुलना' : 'Detailed Comparison'}
               </h3>
               <div className="space-y-4">
-                {comparisons.map((comp) => (
-                  <div
-                    key={comp.productId}
-                    className={`rounded-lg border p-4 ${
-                      comp.betterOption === 'kirana'
-                        ? 'border-primary/20 bg-primary/5'
-                        : 'border-savings/20 bg-savings/5'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h4 className="font-bold">{comp.productName}</h4>
-                        <div className="mt-2 grid gap-2 text-sm sm:grid-cols-3">
-                          <div>
-                            <span className="text-muted-foreground">
-                              {isHi ? 'किराना:' : 'Kirana:'}
-                            </span>
-                            <div className="text-lg font-bold">₹{comp.kiranaPrice}</div>
+                {comparisons.map((comp) => {
+                  const savings = comp.betterOption === 'kirana' ? comp.savingsAtKirana : comp.savingsOnline;
+                  return (
+                    <Card
+                      key={comp.productId}
+                      className={`p-4 ${
+                        comp.betterOption === 'kirana'
+                          ? 'border-primary/50 bg-primary/5 dark:bg-primary/10'
+                          : 'border-savings/50 bg-savings/5 dark:bg-savings/10'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-lg">{comp.productName}</h4>
+                            {comp.betterOption === 'kirana' ? (
+                              <Badge className="bg-primary text-primary-foreground">
+                                <Store className="h-3 w-3 mr-1" />
+                                {isHi ? 'किराना सस्ता' : 'Kirana Cheaper'}
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-savings text-savings-foreground">
+                                <DollarSign className="h-3 w-3 mr-1" />
+                                {isHi ? 'ऑनलाइन सस्ता' : 'Online Cheaper'}
+                              </Badge>
+                            )}
                           </div>
-                          <div>
-                            <span className="text-muted-foreground">
-                              {isHi ? 'सबसे सस्ता ऑनलाइन:' : 'Cheapest Online:'}
-                            </span>
-                            <div className="text-lg font-bold">{comp.cheapestOnlinePlatform.toUpperCase()}</div>
+
+                          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                            <div className="rounded-lg bg-white dark:bg-slate-900 p-3">
+                              <div className="text-xs text-muted-foreground font-semibold">
+                                {isHi ? '🏪 किराना स्टोर' : '🏪 Kirana'}
+                              </div>
+                              <div className="mt-1">
+                                <div className="text-2xl font-bold text-primary">₹{comp.kiranaPrice}</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {isHi ? 'प्रति यूनिट' : 'per unit'}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="rounded-lg bg-white dark:bg-slate-900 p-3">
+                              <div className="text-xs text-muted-foreground font-semibold">
+                                {isHi ? '🌐 सबसे सस्ता ऑनलाइन' : '🌐 Cheapest Online'}
+                              </div>
+                              <div className="mt-1">
+                                <div className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                                  {comp.cheapestOnlinePlatform.toUpperCase()}
+                                </div>
+                                <div className="text-2xl font-bold">₹{comp.cheapestOnline}</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {isHi ? 'प्रति यूनिट' : 'per unit'}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className={`rounded-lg p-3 ${
+                              comp.betterOption === 'kirana'
+                                ? 'bg-primary/20 dark:bg-primary/20'
+                                : 'bg-savings/20 dark:bg-savings/20'
+                            }`}>
+                              <div className="text-xs font-semibold">
+                                {isHi ? '💰 बचत / अतिरिक्त खर्च' : '💰 You Save/Spend'}
+                              </div>
+                              <div className={`mt-1 text-2xl font-bold ${
+                                comp.betterOption === 'kirana'
+                                  ? 'text-primary'
+                                  : 'text-savings'
+                              }`}>
+                                {comp.betterOption === 'kirana' ? '✓' : '✗'} ₹{savings.toFixed(0)}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {isHi 
+                                  ? (comp.betterOption === 'kirana' ? 'प्रति यूनिट सस्ता' : 'प्रति यूनिट महंगा')
+                                  : (comp.betterOption === 'kirana' ? 'per unit' : 'per unit')
+                                }
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-muted-foreground">
-                              {isHi ? 'कीमत:' : 'Price:'}
-                            </span>
-                            <div className="text-lg font-bold">₹{comp.cheapestOnline}</div>
+
+                          {/* Recommendation */}
+                          <div className="mt-3 p-3 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border border-blue-200 dark:border-blue-800">
+                            <div className="text-sm">
+                              <strong>{isHi ? "💡 सुझाव:" : "💡 Recommendation:"}</strong> {isHi ? "इस प्रोडक्ट को" : "Buy from"} <strong>
+                                {comp.betterOption === "kirana" ? isHi ? "किराना स्टोर" : "Kirana Store" : comp.cheapestOnlinePlatform.toUpperCase()}
+                              </strong> {isHi ? "से खरीदें। आप" : "to save"} <strong className={comp.betterOption === "kirana" ? "text-primary" : "text-savings"}>₹{savings.toFixed(0)}</strong> {isHi ? "बचा सकते हैं।" : "per unit."}</div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <Badge
-                        className={`${
-                          comp.betterOption === 'kirana'
-                            ? 'gradient-primary text-primary-foreground'
-                            : 'gradient-savings text-savings-foreground'
-                        }`}
-                      >
-                        {comp.betterOption === 'kirana'
-                          ? `${isHi ? 'किराना सस्ता' : 'Kirana Better'} ₹${comp.savingsAtKirana}`
-                          : `${isHi ? 'ऑनलाइन सस्ता' : 'Online Better'} ₹${comp.savingsOnline}`}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
+                      </Card>
+                  );
+                })}
               </div>
             </Card>
+
+            {/* Info Section */}
+            <div className="mt-8 rounded-lg bg-green-50 p-4">
+              <h3 className="mb-2 font-semibold text-green-900">
+                {isHi ? '💡 कैसे उपयोग करें' : '💡 How to Use'}
+              </h3>
+              <ul className="space-y-1 text-sm text-green-800">
+                <li>✅ {isHi ? 'अपने स्थानीय किराना स्टोर की कीमतें दर्ज करें' : 'Enter prices from your local kirana store'}</li>
+                <li>✅ {isHi ? 'हम ऑनलाइन प्लेटफॉर्म के साथ तुलना करते हैं' : 'We compare with online platforms'}</li>
+                <li>✅ {isHi ? 'कहां से खरीदना सस्ता है यह जानें' : 'See where you can get the best price'}</li>
+                <li>✅ {isHi ? 'स्मार्ट खरीदारी करें और पैसे बचाएं!' : 'Shop smart and save money!'}</li>
+              </ul>
+            </div>
           </div>
         )}
-
-        {/* Info Section */}
-        <div className="mt-8 rounded-lg bg-green-50 p-4">
-          <h3 className="mb-2 font-semibold text-green-900">
-            {isHi ? '💡 कैसे उपयोग करें' : '💡 How to Use'}
-          </h3>
-          <ul className="space-y-1 text-sm text-green-800">
-            <li>✅ {isHi ? 'अपने स्थानीय किराना स्टोर की कीमतें दर्ज करें' : 'Enter prices from your local kirana store'}</li>
-            <li>✅ {isHi ? 'हम ऑनलाइन प्लेटफॉर्म के साथ तुलना करते हैं' : 'We compare with online platforms'}</li>
-            <li>✅ {isHi ? 'कहां से खरीदना सस्ता है यह जानें' : 'See where you can get the best price'}</li>
-            <li>✅ {isHi ? 'स्मार्ट खरीदारी करें और पैसे बचाएं!' : 'Shop smart and save money!'}</li>
-          </ul>
-        </div>
       </div>
       <Footer />
     </div>

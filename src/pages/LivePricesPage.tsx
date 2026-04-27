@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search as SearchIcon, ExternalLink, Loader2, TrendingDown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search as SearchIcon, ExternalLink, Loader2, TrendingDown, X } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useLivePrices, LiveProduct } from '@/hooks/useLivePrices';
 import { cities } from '@/data/mockData';
@@ -10,8 +10,57 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// Kirana form state - no new imports needed
+// Interface for kirana store data
+interface KiranaStorePrice {
+  id: string;
+  productTitle: string;
+  storeName: string;
+  price: number;
+  timestamp: number;
+  city: string;
+}
 
+// Storage helper functions
+const getKiranaStores = (productTitle: string): KiranaStorePrice[] => {
+  try {
+    const stored = localStorage.getItem('kirana_stores');
+    if (!stored) return [];
+    const all = JSON.parse(stored) as KiranaStorePrice[];
+    return all.filter(k => k.productTitle.toLowerCase() === productTitle.toLowerCase());
+  } catch {
+    return [];
+  }
+};
+
+const saveKiranaStore = (productTitle: string, storeName: string, price: number, city: string) => {
+  try {
+    const stored = localStorage.getItem('kirana_stores');
+    const all = stored ? JSON.parse(stored) : [];
+    all.push({
+      id: Date.now().toString(),
+      productTitle,
+      storeName,
+      price,
+      timestamp: Date.now(),
+      city,
+    });
+    localStorage.setItem('kirana_stores', JSON.stringify(all));
+  } catch (e) {
+    console.error('Failed to save kirana store', e);
+  }
+};
+
+const deleteKiranaStore = (id: string) => {
+  try {
+    const stored = localStorage.getItem('kirana_stores');
+    if (!stored) return;
+    const all = JSON.parse(stored) as KiranaStorePrice[];
+    const filtered = all.filter(k => k.id !== id);
+    localStorage.setItem('kirana_stores', JSON.stringify(filtered));
+  } catch (e) {
+    console.error('Failed to delete kirana store', e);
+  }
+};
 
 const LivePricesPage = () => {
   const { language, selectedCity } = useAppStore();
@@ -43,8 +92,8 @@ const LivePricesPage = () => {
         </h1>
         <p className="mb-4 text-sm text-muted-foreground">
           {isHi
-            ? 'SerpAPI से रियल-टाइम कीमतें खोजें'
-            : 'Search real-time prices powered by SerpAPI'}
+            ? 'ऑनलाइन कीमतें खोजें और अपने स्थानीय किराना स्टोर की कीमतें जोड़ें'
+            : 'Search online prices and add your local kirana store prices'}
         </p>
 
         {/* Search bar */}
@@ -125,7 +174,7 @@ const LivePricesPage = () => {
                         <h3 className="mb-2 font-bold">{pr.platform}</h3>
                         <div className="space-y-2">
                           {pr.products.slice(0, 3).map((product, idx) => (
-                            <ProductRow key={idx} product={product} isCheapest={cheapest?.link === product.link} />
+                            <ProductRow key={idx} product={product} isCheapest={cheapest?.link === product.link} selectedCity={selectedCity} isHi={isHi} />
                           ))}
                         </div>
                       </div>
@@ -142,7 +191,7 @@ const LivePricesPage = () => {
                 </h2>
                 <div className="space-y-3">
                   {data.allResults.map((product, idx) => (
-                    <ProductRow key={idx} product={product} isCheapest={cheapest?.link === product.link} />
+                    <ProductRow key={idx} product={product} isCheapest={cheapest?.link === product.link} selectedCity={selectedCity} isHi={isHi} />
                   ))}
                 </div>
               </div>
@@ -207,26 +256,37 @@ const LivePricesPage = () => {
   );
 };
 
-const ProductRow = ({ product, isCheapest }: { product: LiveProduct; isCheapest: boolean }) => {
+const ProductRow = ({ product, isCheapest, selectedCity, isHi }: { product: LiveProduct; isCheapest: boolean; selectedCity: string; isHi: boolean }) => {
   const [showKiranaForm, setShowKiranaForm] = useState(false);
   const [kiranaData, setKiranaData] = useState({ store: '', price: '' });
+  const [kiranaStores, setKiranaStores] = useState<KiranaStorePrice[]>([]);
+
+  useEffect(() => {
+    // Load kirana stores for this product
+    const stores = getKiranaStores(product.title);
+    setKiranaStores(stores);
+  }, [product.title]);
 
   const addKiranaPrice = () => {
     if (kiranaData.store && kiranaData.price) {
-      alert(`
-✅ KIRANA PRICE ADDED SUCCESSFULLY!
-
-🏪 Store: ${kiranaData.store}
-💰 Price: ₹${kiranaData.price}
-📦 Product: ${product.title}
-
-💡 Now compare with online ₹${product.price}!
-⭐ Thanks for contributing local prices!
-      `);
+      saveKiranaStore(product.title, kiranaData.store, parseFloat(kiranaData.price), selectedCity);
+      const updated = getKiranaStores(product.title);
+      setKiranaStores(updated);
       setShowKiranaForm(false);
       setKiranaData({ store: '', price: '' });
     }
   };
+
+  const removeKiranaStore = (id: string) => {
+    deleteKiranaStore(id);
+    const updated = getKiranaStores(product.title);
+    setKiranaStores(updated);
+  };
+
+  // Find cheapest kirana price
+  const cheapestKirana = kiranaStores.length > 0 ? kiranaStores.reduce((min, k) => k.price < min.price ? k : min) : null;
+  const avgKiranaPrice = kiranaStores.length > 0 ? Math.round(kiranaStores.reduce((sum, k) => sum + k.price, 0) / kiranaStores.length) : 0;
+  const savings = cheapestKirana ? Math.round(product.price - cheapestKirana.price) : 0;
 
   return (
     <div className={`flex flex-col gap-3 p-4 rounded-xl border transition-all ${isCheapest ? 'border-emerald-400 bg-emerald-50/50 shadow-md' : 'border-border hover:border-emerald-300 hover:shadow-lg'}`}>
@@ -267,27 +327,47 @@ const ProductRow = ({ product, isCheapest }: { product: LiveProduct; isCheapest:
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 bg-gradient-to-r from-emerald-500 to-green-600 rounded-full shadow-lg animate-pulse"></div>
             <h4 className="font-bold text-lg bg-gradient-to-r from-emerald-700 to-green-800 bg-clip-text text-transparent">
-              🏪 Local Kirana Prices
+              {isHi ? '🏪 स्थानीय किराना मूल्य' : '🏪 Local Kirana Prices'}
             </h4>
           </div>
           <Badge variant="outline" className="text-xs border-emerald-400 text-emerald-700 hover:bg-emerald-50">
-            Save 15-30%!
+            {isHi ? '15-30% बचाएं!' : 'Save 15-30%!'}
           </Badge>
         </div>
 
-        {/* Kirana Prices Display (Mock Data) */}
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          <div className="p-3 bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl border border-emerald-200 shadow-sm hover:shadow-md transition-all">
-            <div className="text-xs text-emerald-700 font-medium mb-1">Sharma Kirana</div>
-            <div className="text-lg font-bold text-emerald-800">₹{Math.round(product.price * 0.82)}</div>
-            <div className="text-xs text-emerald-600 mt-1">1kg - Yesterday</div>
+        {/* Display existing kirana stores */}
+        {kiranaStores.length > 0 ? (
+          <div className={`grid gap-2 mb-4 ${kiranaStores.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            {kiranaStores.map((store) => (
+              <div key={store.id} className="p-3 bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl border border-emerald-200 shadow-sm hover:shadow-md transition-all group">
+                <div className="flex items-start justify-between mb-1">
+                  <div className="text-xs text-emerald-700 font-medium">{store.storeName}</div>
+                  <button
+                    onClick={() => removeKiranaStore(store.id)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-red-100 rounded"
+                  >
+                    <X className="h-3 w-3 text-red-600" />
+                  </button>
+                </div>
+                <div className="text-lg font-bold text-emerald-800">₹{store.price}</div>
+                <div className="text-xs text-emerald-600 mt-1">
+                  {new Date(store.timestamp).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                </div>
+                {savings > 0 && (
+                  <div className="text-xs text-green-700 font-semibold mt-1">
+                    {isHi ? `बचत: ₹${savings}` : `Save: ₹${savings}`}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-          <div className="p-3 bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl border border-orange-200 shadow-sm hover:shadow-md transition-all">
-            <div className="text-xs text-orange-700 font-medium mb-1">Patel Store</div>
-            <div className="text-lg font-bold text-orange-800">₹{Math.round(product.price * 0.78)}</div>
-            <div className="text-xs text-orange-600 mt-1">Today</div>
+        ) : (
+          <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 shadow-sm mb-4">
+            <p className="text-xs text-gray-600">
+              {isHi ? 'अभी कोई स्टोर की कीमत नहीं जोड़ी गई' : 'No kirana store prices added yet'}
+            </p>
           </div>
-        </div>
+        )}
 
         {/* ADD YOUR KIRANA PRICE BUTTON */}
         <Button 
@@ -295,25 +375,25 @@ const ProductRow = ({ product, isCheapest }: { product: LiveProduct; isCheapest:
           className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-bold py-3 px-6 rounded-2xl shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300 border-0 text-sm"
           size="sm"
         >
-          {showKiranaForm ? '✏️ Edit' : '➕ Add My Kirana Price'}
+          {showKiranaForm ? '✏️ ' : '➕ '} {isHi ? (showKiranaForm ? 'संपादित करें' : 'अपनी किराना कीमत जोड़ें') : (showKiranaForm ? 'Edit' : 'Add My Kirana Price')}
         </Button>
 
         {/* KIRANA FORM */}
         {showKiranaForm && (
           <div className="mt-3 p-4 bg-white rounded-2xl border-2 border-dashed border-emerald-300 shadow-inner">
-            <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
               <div>
-                <label className="text-xs font-semibold text-gray-700 mb-1 block">🏪 Store Name</label>
+                <label className="text-xs font-semibold text-gray-700 mb-1 block">{isHi ? '🏪 दुकान का नाम' : '🏪 Store Name'}</label>
                 <input
                   type="text"
                   className="w-full p-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder="Sharma Kirana"
+                  placeholder={isHi ? 'राज किराना' : 'Raj Kirana'}
                   value={kiranaData.store}
                   onChange={(e) => setKiranaData({...kiranaData, store: e.target.value})}
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-700 mb-1 block">💰 Price (₹)</label>
+                <label className="text-xs font-semibold text-gray-700 mb-1 block">💰 {isHi ? 'कीमत (₹)' : 'Price (₹)'}</label>
                 <input
                   type="number"
                   className="w-full p-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
@@ -329,7 +409,7 @@ const ProductRow = ({ product, isCheapest }: { product: LiveProduct; isCheapest:
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl shadow-md"
                 size="sm"
               >
-                ✅ Save Kirana Price
+                ✅ {isHi ? 'किराना कीमत सहेजें' : 'Save Kirana Price'}
               </Button>
               <Button 
                 onClick={() => {
@@ -340,25 +420,36 @@ const ProductRow = ({ product, isCheapest }: { product: LiveProduct; isCheapest:
                 size="sm"
                 className="px-4"
               >
-                Cancel
+                {isHi ? 'रद्द करें' : 'Cancel'}
               </Button>
             </div>
           </div>
         )}
 
         {/* Savings Comparison */}
-        <div className="mt-4 pt-3 border-t border-emerald-200">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-emerald-700 font-semibold">Online Price:</span>
-            <span className="text-gray-900 font-bold">₹{product.price}</span>
+        {(cheapestKirana || avgKiranaPrice > 0) && (
+          <div className="mt-4 pt-3 border-t border-emerald-200 space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-emerald-700 font-semibold">{isHi ? 'ऑनलाइन कीमत:' : 'Online Price:'}</span>
+              <span className="text-gray-900 font-bold">₹{product.price}</span>
+            </div>
+            {cheapestKirana && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-emerald-700 font-semibold">{isHi ? 'सबसे सस्ता किराना:' : 'Cheapest Kirana:'}</span>
+                <span className="text-green-600 font-bold">₹{cheapestKirana.price}</span>
+              </div>
+            )}
+            {savings > 0 && (
+              <div className="flex items-center justify-between text-xs bg-green-50 -mx-1 px-3 py-1 rounded">
+                <span className="text-green-700 font-semibold">{isHi ? 'बचा सकते हैं:' : 'You Save:'}</span>
+                <span className="text-green-700 font-bold">₹{savings}</span>
+              </div>
+            )}
           </div>
-          <div className="flex items-center justify-between text-xs mt-1">
-            <span className="text-emerald-700 font-semibold">Est. Kirana Saving:</span>
-            <span className="text-green-600 font-bold">~20% cheaper</span>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
 };
+
 export default LivePricesPage;

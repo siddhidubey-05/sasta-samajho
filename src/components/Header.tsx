@@ -39,28 +39,35 @@ const Header = () => {
         </div>
 
         <div className="flex items-center gap-2">
-  {/* NEW: Budget Planner Button */}
+  {/* NEW: Shopping List Button */}
+  <Link to="/shopping-list">
+    <Button variant="ghost" size="sm" className="gap-1 text-xs hover:text-blue-600">
+      📋 List
+    </Button>
+  </Link>
+
+  {/* Budget Planner Button */}
   <Link to="/budget-planner">
     <Button variant="ghost" size="sm" className="gap-1 text-xs hover:text-green-600">
       💰 Budget
     </Button>
   </Link>
   
-  {/* NEW: Price Alerts Button */}
+  {/* Price Alerts Button */}
   <Link to="/price-alerts">
     <Button variant="ghost" size="sm" className="gap-1 text-xs hover:text-orange-600">
       🔔 Alerts
     </Button>
   </Link>
 
-  {/* NEW: Kirana Comparison Button */}
-  <Link to="/kirana">
+  {/* Kirana Comparison Button */}
+  <Link to="/kirana-comparison">
     <Button variant="ghost" size="sm" className="gap-1 text-xs hover:text-emerald-600">
       🏪 Kirana
     </Button>
   </Link>
 
-  {/* EXISTING Language Button */}
+  {/* Language Button */}
   <Button
     variant="ghost"
     size="sm"
@@ -71,7 +78,7 @@ const Header = () => {
     {isHi ? 'EN' : 'हिं'}
   </Button>
 
-  {/* REST OF EXISTING BUTTONS */}
+  {/* Live Prices Button */}
   <Link to="/live-prices">
     <Button variant="ghost" size="sm" className="relative gap-1 text-xs text-destructive">
       <Radio className="h-3.5 w-3.5" />
@@ -79,24 +86,25 @@ const Header = () => {
     </Button>
   </Link>
 
+  {/* Search Button */}
   <Link to="/search">
     <Button variant="ghost" size="icon" className="relative">
       <Search className="h-5 w-5" />
     </Button>
   </Link>
 
-
-        <Link to="/cart">
-          <Button variant="ghost" size="icon" className="relative">
-            <ShoppingCart className="h-5 w-5" />
-            {cartCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                {cartCount}
-              </span>
-            )}
-          </Button>
-        </Link>
-      </div>
+  {/* Cart Button */}
+  <Link to="/cart">
+    <Button variant="ghost" size="icon" className="relative">
+      <ShoppingCart className="h-5 w-5" />
+      {cartCount > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+          {cartCount}
+        </span>
+      )}
+    </Button>
+  </Link>
+        </div>
     </div>
   </header>
 );
