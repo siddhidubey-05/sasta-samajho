@@ -5,6 +5,7 @@ import { products } from '@/data/mockData';
 import { productPrices, getCheapestPrice } from '@/data/productPrices';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import SmartSuggestionsPopup from '@/components/SmartSuggestionsPopup';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -53,6 +54,7 @@ const KiranaComparisonPage = () => {
   const [showForm, setShowForm] = useState(false);
   const [selectedStore, setSelectedStore] = useState<string>('');
   const [comparisons, setComparisons] = useState<KiranaPriceComparison[]>([]);
+  const [showSmartSuggestions, setShowSmartSuggestions] = useState(false);
 
   // Load stores from localStorage
   useEffect(() => {
@@ -106,6 +108,10 @@ const KiranaComparisonPage = () => {
           }
         });
         setComparisons(comps);
+        // Show smart suggestions popup after a short delay
+        if (comps.length > 0) {
+          setTimeout(() => setShowSmartSuggestions(true), 500);
+        }
       }
     } else {
       setComparisons([]);
@@ -471,6 +477,13 @@ const KiranaComparisonPage = () => {
         )}
       </div>
       <Footer />
+      {/* Smart Suggestions Popup */}
+      <SmartSuggestionsPopup
+        productIds={comparisons.map((c) => c.productId)}
+        isOpen={showSmartSuggestions}
+        onClose={() => setShowSmartSuggestions(false)}
+        isHi={isHi}
+      />
     </div>
   );
 };

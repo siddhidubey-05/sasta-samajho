@@ -14,6 +14,20 @@ export interface PriceDrop {
   platform: string;
 }
 
+export interface AIPricePrediction {
+  productId: string;
+  productName: string;
+  platform: string;
+  currentPrice: number;
+  predictedPrice: number;
+  estimatedSavings: number;
+  savingsPercentage: number;
+  bestDayToBuy?: string;
+  daysToWait: number;
+  reason: string;
+  confidence: 'high' | 'medium' | 'low';
+}
+
 export interface ShoppingRecommendation {
   productId: string;
   productName: string;
@@ -272,4 +286,197 @@ export const comparePlatformPrices = (
   });
 
   return comparisons.sort((a, b) => a.totalWithDelivery - b.totalWithDelivery);
+};
+
+// Festival and seasonal sale dates for 2026
+export const getFestivalInfo = (date: Date) => {
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const dateStr = `${month}-${day}`;
+
+  const festivals: Record<string, { name: string; discount: number; nameHi: string; daysAway?: number }> = {
+    '4-27': { name: 'Spring Season Sale', nameHi: 'वसंत मौसमी बिक्री', discount: 8 },
+    '5-15': { name: 'Summer Clearance', nameHi: 'गर्मी की सफाई बिक्री', discount: 12 },
+    '7-7': { name: 'Mid-Year Mega Sale', nameHi: 'मध्य-वर्ष मेगा बिक्री', discount: 15 },
+    '8-15': { name: 'Independence Day Sale', nameHi: 'स्वतंत्रता दिवस बिक्री', discount: 10 },
+    '9-16': { name: 'Janmashtami Sale', nameHi: 'जन्माष्टमी बिक्री', discount: 8 },
+    '10-2': { name: 'Gandhi Jayanti Sale', nameHi: 'गांधी जयंती बिक्री', discount: 7 },
+    '10-12': { name: 'Diwali Bonanza', nameHi: 'दिवाली महोत्सव', discount: 20 },
+    '11-1': { name: 'Post-Diwali Sale', nameHi: 'दिवाली के बाद बिक्री', discount: 15 },
+    '12-25': { name: 'Christmas Special', nameHi: 'क्रिसमस विशेष', discount: 12 },
+    '1-26': { name: 'Republic Day Sale', nameHi: 'गणतंत्र दिवस बिक्री', discount: 9 },
+  };
+
+  return festivals[dateStr];
+};
+
+// Platform-specific deals pattern
+export const getPlatformDealInfo = (dayOfWeek: number) => {
+  const deals: Record<number, { platform: string; discount: number; reason: string; reasonHi: string }> = {
+    0: { platform: 'dmart', discount: 5, reason: 'Sunday mega sale on staples', reasonHi: 'रविवार को अनाज पर मेगा बिक्री' },
+    1: { platform: 'instamart', discount: 4, reason: 'Monday morning deals', reasonHi: 'सोमवार की सुबह की डील' },
+    2: { platform: 'blinkit', discount: 6, reason: 'Tuesday flash sale', reasonHi: 'मंगलवार फ्लैश सेल' },
+    3: { platform: 'blinkit', discount: 6, reason: 'Wednesday midweek special', reasonHi: 'बुधवार को मध्य सप्ताह विशेष' },
+    4: { platform: 'jiomart', discount: 7, reason: 'Thursday fresh delivery deals', reasonHi: 'गुरुवार ताजा डिलीवरी डील' },
+    5: { platform: 'jiomart', discount: 7, reason: 'Friday mega sale', reasonHi: 'शुक्रवार मेगा बिक्री' },
+    6: { platform: 'instamart', discount: 5, reason: 'Saturday weekend sale', reasonHi: 'शनिवार सप्ताहांत बिक्री' },
+  };
+
+  return deals[dayOfWeek];
+};
+
+// Get payday discount info
+export const getPaydayInfo = (dayOfMonth: number) => {
+  // Payday cycles: 5th, 15th, 25th of month
+  if (dayOfMonth >= 3 && dayOfMonth <= 6) {
+    return { isPayday: true, discount: 10, reason: 'Early month payday sales - 10% cashback offers' };
+  }
+  if (dayOfMonth >= 13 && dayOfMonth <= 17) {
+    return { isPayday: true, discount: 8, reason: 'Mid-month payday promotions - Super deals' };
+  }
+  if (dayOfMonth >= 23 && dayOfMonth <= 27) {
+    return { isPayday: true, discount: 12, reason: 'Late month payday mega sale - Highest discounts' };
+  }
+  return { isPayday: false, discount: 0, reason: '' };
+};
+
+// Enhanced AI prediction for selected products (used in Smart Suggestions popup)
+export const generateAIPredictions = (productIds: string[]): AIPricePrediction[] => {
+  const predictions: AIPricePrediction[] = [];
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const dayOfMonth = today.getDate();
+  
+  // Get day names for better messaging
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  productIds.forEach((productId) => {
+    const priceData = productPrices[productId as keyof typeof productPrices];
+    if (!priceData) return;
+
+    Object.entries(priceData.prices).forEach(([platform, currentPrice]) => {
+      let predictedPrice = currentPrice;
+      let daysToWait = 0;
+      let bestDayToBuy = '';
+      let reason = priceData.reason || 'Market driven adjustment';
+      let confidence: 'high' | 'medium' | 'low' = 'medium';
+      let totalDiscount = 0;
+
+      // Check festival upcoming
+      const nextFestival = getFestivalUpcoming(today);
+      if (nextFestival && nextFestival.daysAway! <= 7) {
+        totalDiscount += nextFestival.discount;
+        reason = `Festival Sale Coming - ${nextFestival.name}`;
+        confidence = 'high';
+        daysToWait = nextFestival.daysAway || 3;
+        bestDayToBuy = getDateString(getDateDaysFromNow(nextFestival.daysAway || 3));
+      }
+
+      // Check payday cycles
+      const paydayInfo = getPaydayInfo(dayOfMonth);
+      if (paydayInfo.isPayday) {
+        totalDiscount += paydayInfo.discount;
+        reason = paydayInfo.reason;
+        confidence = 'high';
+      }
+
+      // Check platform-specific patterns
+      const platformDeal = getPlatformDealInfo(dayOfWeek);
+      if (platformDeal && platformDeal.platform === platform) {
+        totalDiscount += platformDeal.discount;
+        reason = `${reason} + ${platformDeal.reason}`;
+        confidence = 'high';
+        daysToWait = 1;
+        bestDayToBuy = dayNames[(dayOfWeek + 1) % 7];
+      }
+
+      // Apply trend-based prediction
+      if (priceData.trend === 'decreasing') {
+        totalDiscount += 8;
+        reason += ' (Decreasing trend)';
+        daysToWait = Math.min(priceData.nextDrop || 2, 3);
+        confidence = 'high';
+      } else if (priceData.trend === 'increasing') {
+        totalDiscount = -5; // Price might go up
+        reason = '⚠️ Price rising - Buy now!';
+        confidence = 'high';
+        daysToWait = 0;
+      }
+
+      // Calculate predicted price
+      if (totalDiscount > 0) {
+        predictedPrice = currentPrice * (1 - totalDiscount / 100);
+        confidence = totalDiscount >= 15 ? 'high' : totalDiscount >= 8 ? 'medium' : 'low';
+      }
+
+      if (!bestDayToBuy && daysToWait > 0) {
+        bestDayToBuy = dayNames[(dayOfWeek + Math.min(daysToWait, 6)) % 7];
+      }
+
+      predictions.push({
+        productId,
+        productName: priceData.name,
+        platform: platform.charAt(0).toUpperCase() + platform.slice(1),
+        currentPrice,
+        predictedPrice: Math.round(predictedPrice * 100) / 100,
+        estimatedSavings: Math.round((currentPrice - predictedPrice) * 100) / 100,
+        savingsPercentage: totalDiscount > 0 ? Math.round(totalDiscount * 10) / 10 : 0,
+        bestDayToBuy: bestDayToBuy || dayNames[(dayOfWeek + Math.min(daysToWait, 6)) % 7],
+        daysToWait: Math.max(daysToWait, 0),
+        reason,
+        confidence,
+      });
+    });
+  });
+
+  return predictions.sort((a, b) => b.estimatedSavings - a.estimatedSavings);
+};
+
+// Helper to get upcoming festival
+export const getFestivalUpcoming = (fromDate: Date) => {
+  const festivals = [
+    { month: 5, day: 15, name: 'Summer Clearance', discount: 12, daysAway: 18 },
+    { month: 7, day: 7, name: 'Mid-Year Mega Sale', discount: 15, daysAway: 71 },
+    { month: 8, day: 15, name: 'Independence Day Sale', discount: 10, daysAway: 110 },
+    { month: 10, day: 12, name: 'Diwali Bonanza', discount: 20, daysAway: 168 },
+  ];
+
+  const today = fromDate.getMonth() + 1;
+  const todayDate = fromDate.getDate();
+
+  // Find nearest upcoming festival
+  let nearest = null;
+  let minDays = 365;
+
+  festivals.forEach((f) => {
+    let daysAway = 0;
+    if (f.month > today) {
+      daysAway = (f.month - today) * 30 + (f.day - todayDate);
+    } else if (f.month === today && f.day > todayDate) {
+      daysAway = f.day - todayDate;
+    } else {
+      // Next year
+      daysAway = 365 - todayDate + f.day + (f.month - 1) * 30;
+    }
+
+    if (daysAway < minDays && daysAway > 0 && daysAway <= 60) {
+      minDays = daysAway;
+      nearest = { ...f, daysAway };
+    }
+  });
+
+  return nearest;
+};
+
+// Helper to get date string
+export const getDateString = (date: Date): string => {
+  const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+  return date.toLocaleDateString('en-US', options);
+};
+
+// Helper to get date N days from now
+export const getDateDaysFromNow = (days: number): Date => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date;
 };

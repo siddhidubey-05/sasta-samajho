@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Plus, Bell, TrendingDown, Zap, AlertCircle, ShoppingCart } from 'lucide-react';
+import { Trash2, Plus, Bell, TrendingDown, Zap, AlertCircle, ShoppingCart, Filter, X } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { products } from '@/data/mockData';
-import { productPrices, getCheapestPrice, getPriceDropPrediction } from '@/data/productPrices';
+import { productPrices, getCheapestPrice } from '@/data/productPrices';
 import { comparePlatformPrices } from '@/lib/smartSuggestions';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -22,91 +22,111 @@ export interface PriceAlert {
   id: string;
   productId: string;
   productName: string;
-  targetPrice: number;
-  currentPrice: number;
+  platform: string;
+  oldPrice: number;
+  newPrice: number;
+  percentageDrop: number;
   createdAt: Date;
   notified: boolean;
-  platform?: string;
-  priceDropped: boolean;
-  prediction?: {
-    expectedDays: number;
-    reason: string;
-    expectedDropAmount: number;
+  bestCurrentDeal?: {
+    platform: string;
+    price: number;
   };
+  category?: string;
+  reason?: string;
 }
 
 const PriceAlertsPage = () => {
-  const { language } = useAppStore();
+  const { cart, language } = useAppStore();
   const isHi = language === 'hi';
   
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
-  const [newAlert, setNewAlert] = useState({ productId: '', targetPrice: '' });
-  const [showForm, setShowForm] = useState(false);
+  const [platformFilter, setPlatformFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'recent' | 'savings'>('savings');
 
-  // Load alerts from localStorage on mount
+  // Get watchlist (cart items)
+  const watchlistProductIds = cart.map((item) => item.productId);
+
+  // Get all unique categories from watchlist products
+  const categories = Array.from(
+    new Set(
+      products
+        .filter((p) => watchlistProductIds.includes(p.id))
+        .map((p) => p.category)
+    )
+  );
+
+  // Generate price drop alerts for watchlist products
   useEffect(() => {
-    const saved = localStorage.getItem('price-alerts');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setAlerts(parsed.map((a: any) => ({
-          ...a,
-          createdAt: new Date(a.createdAt),
-        })));
-      } catch {
-        // ignore parse errors
+    const generatedAlerts: PriceAlert[] = [];
+    const seenPlatforms = new Set<string>();
+
+    watchlistProductIds.forEach((productId) => {
+      const product = products.find((p) => p.id === productId);
+      const priceData = productPrices[productId as keyof typeof productPrices];
+
+      if (product && priceData) {
+        const basePrice = priceData.basePrice;
+        const platformComps = comparePlatformPrices(productId, 1);
+        const bestDeal = platformComps.find((p) => p.isCheapest);
+
+        // Generate alerts for price drops by platform
+        Object.entries(priceData.prices).forEach(([platform, currentPrice]) => {
+          const oldPrice = basePrice + Math.random() * 20; // Simulated old price
+          const drop = oldPrice - currentPrice;
+          const percentDrop = (drop / oldPrice) * 100;
+
+          if (percentDrop > 3) { // Only show significant drops
+            const key = `${productId}-${platform}`;
+            if (!seenPlatforms.has(key)) {
+              seenPlatforms.add(key);
+              generatedAlerts.push({
+                id: `alert-${productId}-${platform}-${Date.now()}`,
+                productId,
+                productName: isHi ? product.nameHi : product.name,
+                platform: platform.charAt(0).toUpperCase() + platform.slice(1),
+                oldPrice: Math.round(oldPrice * 100) / 100,
+                newPrice: Math.round(currentPrice * 100) / 100,
+                percentageDrop: Math.round(percentDrop * 10) / 10,
+                createdAt: new Date(),
+                notified: false,
+                bestCurrentDeal: bestDeal
+                  ? {
+                      platform: bestDeal.platform,
+                      price: bestDeal.price,
+                    }
+                  : undefined,
+                category: product.category,
+                reason: priceData.reason,
+              });
+            }
+          }
+        });
       }
-    }
-  }, []);
+    });
 
-  // Save alerts to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('price-alerts', JSON.stringify(alerts));
-  }, [alerts]);
+    setAlerts(generatedAlerts.sort((a, b) => b.percentageDrop - a.percentageDrop));
+  }, [cart, watchlistProductIds.length]);
 
-  const handleAddAlert = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newAlert.productId || !newAlert.targetPrice) return;
+  // Filter alerts
+  const filteredAlerts = alerts
+    .filter((alert) => platformFilter === 'all' || alert.platform === platformFilter)
+    .filter((alert) => categoryFilter === 'all' || alert.category === categoryFilter)
+    .sort((a, b) => {
+      if (sortBy === 'savings') {
+        return b.percentageDrop - a.percentageDrop;
+      } else {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
 
-    const product = products.find((p) => p.id === newAlert.productId);
-    if (!product) return;
-
-    const priceData = productPrices[newAlert.productId as keyof typeof productPrices];
-    const currentPrice = getCheapestPrice(newAlert.productId) || 50;
-    const targetPrice = parseFloat(newAlert.targetPrice);
-    const prediction = getPriceDropPrediction(newAlert.productId);
-
-    const alert: PriceAlert = {
-      id: `alert-${Date.now()}`,
-      productId: newAlert.productId,
-      productName: isHi ? product.nameHi : product.name,
-      targetPrice,
-      currentPrice,
-      createdAt: new Date(),
-      notified: currentPrice <= targetPrice,
-      platform: 'All',
-      priceDropped: currentPrice <= targetPrice,
-      prediction: prediction || undefined,
-    };
-
-    setAlerts([...alerts, alert]);
-    setNewAlert({ productId: '', targetPrice: '' });
-    setShowForm(false);
-
-    // Auto-trigger notification if price already dropped
-    if (currentPrice <= targetPrice) {
-      const msg = isHi
-        ? `✅ कीमत पहले से ही कम है! ${product.nameHi} - ₹${currentPrice.toFixed(0)}`
-        : `✅ Price already dropped! ${product.name} - ₹${currentPrice.toFixed(0)}`;
-      console.log(msg);
-    }
-  };
+  const totalSavings = filteredAlerts.reduce((sum, a) => sum + (a.oldPrice - a.newPrice), 0);
+  const totalDrops = filteredAlerts.length;
 
   const handleDeleteAlert = (id: string) => {
     setAlerts(alerts.filter((a) => a.id !== id));
   };
-
-  const alertsTriggered = alerts.filter((a) => a.priceDropped).length;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -120,291 +140,297 @@ const PriceAlertsPage = () => {
           </h1>
           <p className="text-muted-foreground">
             {isHi
-              ? 'अपनी पसंदीदा वस्तुओं के लिए मूल्य सतर्कताएं सेट करें और सर्वोत्तम सौदे कभी न भूलें'
-              : 'Set price alerts for your favorite items and never miss a great deal'}
+              ? 'आपके कार्ट में जोड़े गए सामान के लिए कीमत में गिरावट को देखें'
+              : 'Price drops for items in your cart and shopping list'}
           </p>
         </div>
 
-        {/* Alert Stats */}
-        <div className="mb-6 grid gap-4 sm:grid-cols-3">
-          <Card className="p-4">
-            <div className="text-sm text-muted-foreground">
-              {isHi ? 'कुल सतर्कताएं' : 'Total Alerts'}
-            </div>
-            <div className="text-2xl font-bold">{alerts.length}</div>
+        {watchlistProductIds.length === 0 ? (
+          <Card className="p-12 text-center">
+            <ShoppingCart className="mx-auto mb-4 h-12 w-12 text-muted-foreground opacity-50" />
+            <h3 className="mb-2 text-lg font-semibold">
+              {isHi ? 'कोई सामान नहीं जोड़ा गया' : 'No Items in Your List'}
+            </h3>
+            <p className="mb-4 text-muted-foreground">
+              {isHi
+                ? 'मूल्य सतर्कताएं देखने के लिए कार्ट या शॉपिंग सूची में सामान जोड़ें'
+                : 'Add items to your cart or shopping list to see price drops'}
+            </p>
           </Card>
-          <Card className="p-4">
-            <div className="text-sm text-muted-foreground flex items-center gap-1">
-              <TrendingDown className="h-4 w-4 text-savings" />
-              {isHi ? 'कीमत कम हुई' : 'Price Dropped'}
+        ) : (
+          <>
+            {/* Stats */}
+            <div className="mb-6 grid gap-4 sm:grid-cols-3">
+              <Card className="p-4">
+                <div className="text-sm text-muted-foreground">
+                  {isHi ? 'कुल कीमत कटौती' : 'Total Price Drops'}
+                </div>
+                <div className="text-2xl font-bold">{totalDrops}</div>
+              </Card>
+              <Card className="p-4">
+                <div className="text-sm text-muted-foreground flex items-center gap-1">
+                  <TrendingDown className="h-4 w-4 text-savings" />
+                  {isHi ? 'कुल बचत' : 'Total Savings'}
+                </div>
+                <div className="text-2xl font-bold text-savings">₹{Math.round(totalSavings)}</div>
+              </Card>
+              <Card className="p-4 gradient-primary text-primary-foreground">
+                <div className="text-sm opacity-90">
+                  {isHi ? 'औसत कटौती' : 'Avg. Drop'}
+                </div>
+                <div className="text-2xl font-bold">
+                  {totalDrops > 0 ? ((filteredAlerts.reduce((sum, a) => sum + a.percentageDrop, 0)) / totalDrops).toFixed(1) : 0}%
+                </div>
+              </Card>
             </div>
-            <div className="text-2xl font-bold text-savings">{alertsTriggered}</div>
-          </Card>
-          <Card className="p-4 gradient-primary text-primary-foreground">
-            <div className="text-sm opacity-90">
-              {isHi ? 'संभावित बचत' : 'Potential Savings'}
-            </div>
-            <div className="text-2xl font-bold">
-              ₹{alerts
-                .filter((a) => a.priceDropped)
-                .reduce((sum, a) => sum + (a.currentPrice - a.targetPrice), 0)
-                .toFixed(0)}
-            </div>
-          </Card>
-        </div>
 
-        {/* Add Alert Button */}
-        {!showForm && (
-          <Button
-            onClick={() => setShowForm(true)}
-            className="mb-6 gap-2 gradient-primary text-primary-foreground"
-            size="lg"
-          >
-            <Plus className="h-4 w-4" />
-            {isHi ? 'नई सतर्कता जोड़ें' : 'Add New Alert'}
-          </Button>
-        )}
+            {/* Filters */}
+            <Card className="mb-6 p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Filter className="h-4 w-4" />
+                <span className="font-semibold text-sm">
+                  {isHi ? 'फ़िल्टर और क्रमांकन' : 'Filters & Sorting'}
+                </span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="mb-2 block text-xs font-medium text-muted-foreground">
+                    {isHi ? 'प्लेटफॉर्म' : 'Platform'}
+                  </label>
+                  <Select value={platformFilter} onValueChange={setPlatformFilter}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        {isHi ? 'सभी प्लेटफॉर्म' : 'All Platforms'}
+                      </SelectItem>
+                      <SelectItem value="Dmart">DMart</SelectItem>
+                      <SelectItem value="Blinkit">Blinkit</SelectItem>
+                      <SelectItem value="Jiomart">JioMart</SelectItem>
+                      <SelectItem value="Instamart">Instamart</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-        {/* Add Alert Form */}
-        {showForm && (
-          <Card className="mb-6 p-6">
-            <form onSubmit={handleAddAlert} className="space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  {isHi ? 'सामान चुनें' : 'Select Item'}
-                </label>
-                <Select value={newAlert.productId} onValueChange={(val) => setNewAlert({ ...newAlert, productId: val })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={isHi ? 'सामान चुनें...' : 'Choose item...'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.keys(productPrices).map((productId) => {
-                      const product = products.find((p) => p.id === productId);
-                      return product ? (
-                        <SelectItem key={productId} value={productId}>
-                          {isHi ? product.nameHi : product.name} ({product.unit})
+                <div>
+                  <label className="mb-2 block text-xs font-medium text-muted-foreground">
+                    {isHi ? 'श्रेणी' : 'Category'}
+                  </label>
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        {isHi ? 'सभी श्रेणियां' : 'All Categories'}
+                      </SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat}
                         </SelectItem>
-                      ) : null;
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  {isHi ? 'लक्ष्य मूल्य (₹)' : 'Target Price (₹)'}
-                </label>
-                <Input
-                  type="number"
-                  placeholder={isHi ? 'जब कीमत इससे कम हो तो सूचित करें' : 'Alert when price drops below'}
-                  value={newAlert.targetPrice}
-                  onChange={(e) => setNewAlert({ ...newAlert, targetPrice: e.target.value })}
-                  min="0"
-                  step="10"
-                  required
-                />
+                <div>
+                  <label className="mb-2 block text-xs font-medium text-muted-foreground">
+                    {isHi ? 'क्रमांकन' : 'Sort By'}
+                  </label>
+                  <Select value={sortBy} onValueChange={(val) => setSortBy(val as 'recent' | 'savings')}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="savings">
+                        {isHi ? 'सबसे अधिक बचत' : 'Highest Savings'}
+                      </SelectItem>
+                      <SelectItem value="recent">
+                        {isHi ? 'सबसे नया' : 'Most Recent'}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-
-              <div className="flex gap-2">
-                <Button type="submit" className="gradient-primary text-primary-foreground flex-1">
-                  {isHi ? 'सतर्कता जोड़ें' : 'Add Alert'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setShowForm(false);
-                    setNewAlert({ productId: '', targetPrice: '' });
-                  }}
-                  className="flex-1"
-                >
-                  {isHi ? 'रद्द करें' : 'Cancel'}
-                </Button>
-              </div>
-            </form>
-          </Card>
-        )}
-
-        {/* Alerts List */}
-        <div className="space-y-4">
-          {alerts.length === 0 ? (
-            <Card className="p-12 text-center">
-              <Bell className="mx-auto mb-4 h-12 w-12 text-muted-foreground opacity-50" />
-              <h3 className="mb-2 text-lg font-semibold">
-                {isHi ? 'कोई सतर्कताएं नहीं' : 'No Alerts Yet'}
-              </h3>
-              <p className="mb-4 text-muted-foreground">
-                {isHi
-                  ? 'मूल्य ट्रैकिंग शुरू करने के लिए अपनी पहली सतर्कता जोड़ें'
-                  : 'Add your first alert to start tracking prices'}
-              </p>
-              <Button onClick={() => setShowForm(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                {isHi ? 'पहली सतर्कता जोड़ें' : 'Add First Alert'}
-              </Button>
             </Card>
-          ) : (
-            alerts.map((alert) => {
-              const triggered = alert.priceDropped;
-              const savings = alert.currentPrice - alert.targetPrice;
 
-              return (
-                <Card
-                  key={alert.id}
-                  className={`p-4 transition-all ${
-                    triggered ? 'border-savings bg-savings/5 ring-1 ring-savings/20' : ''
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-bold text-lg">{alert.productName}</h3>
-                        {triggered && (
-                          <Badge className="gradient-savings text-savings-foreground animate-pulse">
-                            {isHi ? '🎉 कीमत कम हुई!' : '🎉 Price Dropped!'}
-                          </Badge>
-                        )}
-                        {!triggered && alert.prediction && alert.prediction.expectedDays <= 3 && (
-                          <Badge className="bg-orange-100 text-orange-800">
-                            {isHi ? '⚡ जल्द ही' : '⚡ Coming Soon'}
-                          </Badge>
-                        )}
-                      </div>
-
-                      <div className="mt-3 grid gap-2 sm:grid-cols-4">
-                        <div>
-                          <div className="text-xs text-muted-foreground">
-                            {isHi ? 'वर्तमान कीमत' : 'Current Price'}
-                          </div>
-                          <div className="text-lg font-bold">₹{alert.currentPrice.toFixed(0)}</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-muted-foreground">
-                            {isHi ? 'लक्ष्य कीमत' : 'Target Price'}
-                          </div>
-                          <div className="text-lg font-bold text-primary">₹{alert.targetPrice.toFixed(0)}</div>
-                        </div>
-                        {triggered && (
-                          <div>
-                            <div className="text-xs text-muted-foreground">
-                              {isHi ? 'बचत' : 'You Save'}
-                            </div>
-                            <div className="text-lg font-bold text-savings">₹{savings.toFixed(0)}</div>
-                          </div>
-                        )}
-                        {alert.prediction && (
-                          <div>
-                            <div className="text-xs text-muted-foreground">
-                              {isHi ? 'अनुमानित ड्रॉप' : 'Expected Drop'}
-                            </div>
-                            <div className="text-lg font-bold text-blue-600">
-                              ₹{alert.prediction.expectedDropAmount}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Price Prediction Section */}
-                      {alert.prediction && !triggered && (
-                        <div className="mt-3 rounded-lg bg-blue-50 p-3 border border-blue-200">
-                          <div className="flex items-start gap-2">
-                            <Zap className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                            <div>
-                              <h4 className="text-sm font-semibold text-blue-900">
-                                {isHi ? '📊 मूल्य कम होने की संभावना' : '📊 Price Drop Prediction'}
-                              </h4>
-                              <p className="text-sm text-blue-800 mt-1">
-                                {isHi
-                                  ? `${alert.prediction.expectedDays} दिनों में ₹${alert.prediction.expectedDropAmount} तक कम हो सकता है।`
-                                  : `Expected to drop by ₹${alert.prediction.expectedDropAmount} in ${alert.prediction.expectedDays} days.`}
-                              </p>
-                              <p className="text-xs text-blue-700 mt-1">
-                                <strong>{isHi ? 'कारण:' : 'Reason:'}</strong> {alert.prediction.reason}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Platform Price Comparison */}
-                      {(() => {
-                        const platformComps = comparePlatformPrices(alert.productId, 1);
-                        const cheapestPlatform = platformComps.find((p) => p.isCheapest);
-                        return (
-                          <div className="mt-4 space-y-2">
-                            <div className="text-xs font-semibold text-muted-foreground">
-                              {isHi ? '📍 प्लेटफॉर्म तुलना:' : '📍 Platform Prices:'}
-                            </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                              {platformComps.map((comp) => (
-                                <div
-                                  key={comp.platform}
-                                  className={`p-2 rounded-lg text-center text-xs transition-all ${
-                                    comp.isCheapest
-                                      ? 'bg-green-100 border-2 border-green-500 dark:bg-green-900 dark:border-green-400'
-                                      : 'bg-gray-100 dark:bg-gray-800'
-                                  }`}
-                                >
-                                  <div className="font-semibold">{comp.platform}</div>
-                                  <div className="text-sm font-bold mt-1">₹{comp.price.toFixed(0)}</div>
-                                  {comp.delivery > 0 && (
-                                    <div className="text-xs opacity-70">
-                                      +₹{comp.delivery} {isHi ? 'डिलीवरी' : 'delivery'}
-                                    </div>
-                                  )}
-                                  {comp.isCheapest && (
-                                    <div className="text-xs font-bold text-green-700 dark:text-green-300 mt-1">
-                                      ✓ {isHi ? 'सबसे सस्ता' : 'Best'}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-2">
-                              <strong>{isHi ? '💡 सुझाव:' : '💡 Tip:'}</strong> {isHi ? 'इस प्रोडक्ट को' : 'Buy from'} <strong>{cheapestPlatform?.platform}</strong> {isHi ? 'से खरीदें' : ''} - {isHi ? 'सबसे सस्ता विकल्प' : 'Cheapest option'}
-                            </div>
-                          </div>
-                        );
-                      })()}
-
-                      <div className="mt-3 flex gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {isHi ? 'सेट किया गया:' : 'Set:'} {new Date(alert.createdAt).toLocaleDateString(isHi ? 'hi-IN' : 'en-US')}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteAlert(alert.id)}
-                      className="text-destructive hover:bg-destructive/10"
+            {/* Alerts List */}
+            {filteredAlerts.length === 0 ? (
+              <Card className="p-12 text-center">
+                <AlertCircle className="mx-auto mb-4 h-12 w-12 text-muted-foreground opacity-50" />
+                <h3 className="mb-2 text-lg font-semibold">
+                  {isHi ? 'कोई सतर्कताएं नहीं' : 'No Alerts Found'}
+                </h3>
+                <p className="text-muted-foreground">
+                  {isHi ? 'चयनित फ़िल्टर के साथ कोई कीमत कटौती नहीं' : 'No price drops for your selected filters'}
+                </p>
+              </Card>
+            ) : (
+              <div className="grid gap-4">
+                {filteredAlerts.map((alert) => {
+                  const savings = alert.oldPrice - alert.newPrice;
+                  const savingsPercentage = (savings / alert.oldPrice) * 100;
+                  
+                  return (
+                    <Card
+                      key={alert.id}
+                      className="p-5 border-l-4 border-l-green-500 bg-gradient-to-r from-green-50/50 to-transparent hover:shadow-md transition"
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </Card>
-              );
-            })
-          )}
-        </div>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          {/* Product Name and Category */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-bold text-lg text-gray-900">
+                              {alert.productName}
+                            </h3>
+                            <Badge variant="outline" className="text-xs">
+                              {alert.category}
+                            </Badge>
+                            <Badge className="bg-green-600 text-white animate-pulse">
+                              ↓ {alert.percentageDrop.toFixed(1)}%
+                            </Badge>
+                          </div>
 
-        {/* Info Section */}
-        <div className="mt-8 rounded-lg bg-blue-50 p-4">
-          <h3 className="mb-2 font-semibold text-blue-900">
-            {isHi ? 'ℹ️ कैसे काम करता है?' : 'ℹ️ How it Works'}
-          </h3>
-          <ul className="space-y-1 text-sm text-blue-800">
-            <li>✅ {isHi ? 'आप अपनी लक्ष्य कीमत सेट करते हैं' : 'Set your target price for any item'}</li>
-            <li>✅ {isHi ? 'हम सभी प्लेटफ़ॉर्म पर कीमतें ट्रैक करते हैं' : 'We monitor prices across all platforms'}</li>
-            <li>✅ {isHi ? 'जब कीमत आपके लक्ष्य तक पहुंचे तो आप सूचित होते हैं' : 'Get notified when price reaches your target'}</li>
-            <li>✅ {isHi ? 'सर्वोत्तम सौदों पर कभी न भूलें!' : 'Never miss great deals again!'}</li>
-          </ul>
-        </div>
+                          {/* Main Info Section */}
+                          <div className="mt-4 grid gap-3 sm:grid-cols-5">
+                            {/* Platform */}
+                            <div className="rounded-lg bg-white p-3 border">
+                              <div className="text-xs text-muted-foreground font-semibold">
+                                {isHi ? '📍 प्लेटफॉर्म' : '📍 Platform'}
+                              </div>
+                              <div className="mt-2 font-bold text-gray-900">
+                                {alert.platform}
+                              </div>
+                            </div>
+
+                            {/* Old Price */}
+                            <div className="rounded-lg bg-white p-3 border">
+                              <div className="text-xs text-muted-foreground font-semibold">
+                                {isHi ? '⏮ पुरानी कीमत' : '⏮ Old Price'}
+                              </div>
+                              <div className="mt-2 font-bold text-gray-900 line-through opacity-70">
+                                ₹{alert.oldPrice.toFixed(0)}
+                              </div>
+                            </div>
+
+                            {/* New Price */}
+                            <div className="rounded-lg bg-green-50 p-3 border border-green-200">
+                              <div className="text-xs text-muted-foreground font-semibold">
+                                {isHi ? '🎯 नई कीमत' : '🎯 New Price'}
+                              </div>
+                              <div className="mt-2 font-bold text-green-700">
+                                ₹{alert.newPrice.toFixed(0)}
+                              </div>
+                            </div>
+
+                            {/* Savings */}
+                            <div className="rounded-lg bg-green-100 p-3 border border-green-300">
+                              <div className="text-xs text-muted-foreground font-semibold">
+                                {isHi ? '💰 बचत' : '💰 You Save'}
+                              </div>
+                              <div className="mt-2 font-bold text-green-700">
+                                ₹{savings.toFixed(0)}
+                              </div>
+                              <div className="text-xs text-green-600 mt-1">
+                                {savingsPercentage.toFixed(1)}% off
+                              </div>
+                            </div>
+
+                            {/* Best Deal */}
+                            {alert.bestCurrentDeal && (
+                              <div className="rounded-lg bg-blue-50 p-3 border border-blue-200">
+                                <div className="text-xs text-muted-foreground font-semibold">
+                                  {isHi ? '🏆 सर्वश्रेष्ठ डील' : '🏆 Best Deal'}
+                                </div>
+                                <div className="mt-2 font-bold text-blue-700">
+                                  {alert.bestCurrentDeal.platform}
+                                </div>
+                                <div className="text-xs text-blue-600">
+                                  ₹{alert.bestCurrentDeal.price.toFixed(0)}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Reason/Info */}
+                          {alert.reason && (
+                            <div className="mt-3 flex items-start gap-2 rounded-lg bg-blue-50 p-3 border border-blue-200">
+                              <Zap className="h-4 w-4 flex-shrink-0 text-blue-600 mt-0.5" />
+                              <p className="text-sm text-blue-800">{alert.reason}</p>
+                            </div>
+                          )}
+
+                          {/* Timestamp */}
+                          <div className="mt-3">
+                            <Badge variant="outline" className="text-xs">
+                              {isHi ? 'अपडेट किया गया:' : 'Updated:'} {new Date(alert.createdAt).toLocaleDateString(isHi ? 'hi-IN' : 'en-US')}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {/* Delete Button */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteAlert(alert.id)}
+                          className="text-destructive hover:bg-destructive/10 flex-shrink-0"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Info Section */}
+            <div className="mt-8 rounded-lg bg-blue-50 p-4 border border-blue-200">
+              <h3 className="mb-3 font-semibold text-blue-900">
+                {isHi ? 'ℹ️ कैसे काम करता है?' : 'ℹ️ How it Works'}
+              </h3>
+              <ul className="space-y-2 text-sm text-blue-800">
+                <li className="flex items-start gap-2">
+                  <span className="font-bold">✅</span>
+                  <span>
+                    {isHi
+                      ? 'हम आपके कार्ट में जोड़े गए सामान की कीमतें ट्रैक करते हैं'
+                      : 'We track prices for items you add to cart'}
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="font-bold">✅</span>
+                  <span>
+                    {isHi
+                      ? 'सभी प्लेटफॉर्म पर कीमत की गिरावट देखें'
+                      : 'See price drops across all platforms'}
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="font-bold">✅</span>
+                  <span>
+                    {isHi
+                      ? 'प्लेटफॉर्म और श्रेणी के अनुसार फ़िल्टर करें'
+                      : 'Filter by platform and category'}
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="font-bold">✅</span>
+                  <span>
+                    {isHi
+                      ? 'सर्वोत्तम सौदों पर कभी न भूलें - स्मार्ट खरीदारी करें!'
+                      : 'Never miss great deals - shop smarter!'}
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </>
+        )}
       </div>
       <Footer />
     </div>
   );
 };
 
-export default PriceAlertsPage;
+export default PriceAlertsPage;

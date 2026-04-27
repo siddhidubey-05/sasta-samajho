@@ -86,4 +86,68 @@
   .shadow-card-hover {
     box-shadow: 0 4px 12px hsl(20 20% 12% / 0.1), 0 8px 32px hsl(20 20% 12% / 0.06);
   }
+
+  /* Smooth Animation Classes */
+  .animate-fade-in {
+    animation: fadeIn 0.6s ease-out;
+  }
+
+  .animate-slide-in-from-top {
+    animation: slideInFromTop 0.5s ease-out;
+  }
+
+  .animate-slide-in-from-bottom-2 {
+    animation: slideInFromBottom 0.5s ease-out 0.1s backwards;
+  }
+
+  .animate-slide-in-from-bottom-4 {
+    animation: slideInFromBottom 0.6s ease-out 0.2s backwards;
+  }
+
+  .animate-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .slide-in-from-top-4 {
+    animation: slideInFromTop 0.4s ease-out;
+  }
+
+  .slide-in-from-bottom-2 {
+    animation: slideInFromBottom 0.3s ease-out;
+  }
+
+  .fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
